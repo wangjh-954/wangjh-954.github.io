@@ -152,6 +152,448 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-4" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/06/30/4/">docker应用栈的搭建</a>
+    </h1>
+  
+
+        
+        <a href="/2020/06/30/4/" class="archive-article-date">
+  	<time datetime="2020-06-30T04:56:00.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-06-30</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>这里我们对docker应用栈的搭建做介绍</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 获取Django镜像</span></span><br><span class="line">$ docker pull django</span><br><span class="line"></span><br><span class="line"><span class="comment"># 获取HAProxy镜像</span></span><br><span class="line">$ docker pull haproxy</span><br><span class="line"></span><br><span class="line"><span class="comment"># 获取Redis镜像</span></span><br><span class="line">$ docker pull redis</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看本地镜像列表</span></span><br><span class="line">$ docker images</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>应用容器节点间的互联，由于我们使用的为同一台宿主机，若为真正的分布式架构集群，还应处理容器的跨主机通信问题，在使用<code>run</code>命令创建容器时，添加<code>--link</code>选项，通过容器名，进行容器间安全的交互通信；</li>
+<li>容器启动顺序：<ol>
+<li>启动<code>1</code>个<code>redis-master</code>容器节点；</li>
+<li>启动<code>2</code>个<code>redis-slave</code>容器节点并连接<code>redis-master</code>节点；</li>
+<li>启动<code>2</code>个<code>Web APP</code>容器节点并连接<code>redis-master</code>节点；</li>
+<li>启动<code>1</code>个<code>HAProxy</code>容器节点并连接2个<code>Web APP</code>节点；</li>
+</ol>
+</li>
+</ul>
+<h2 id="搭建指导"><a href="#搭建指导" class="headerlink" title="搭建指导"></a>搭建指导</h2><h3 id="启动各节点并互连"><a href="#启动各节点并互连" class="headerlink" title="启动各节点并互连"></a>启动各节点并互连</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 请总共打开宿主机的7个终端, 每个终端连接一个容器</span></span><br><span class="line"><span class="comment"># 启动redis数据库节点</span></span><br><span class="line">$ docker run -it --name redis-master redis /bin/bash</span><br><span class="line">$ docker run -it --name redis-slave1 --link redis-master:master redis /bin/bash</span><br><span class="line">$ docker run -it --name redis-slave2 --link redis-master:master redis /bin/bash</span><br><span class="line"> </span><br><span class="line"><span class="comment"># 启动APP节点</span></span><br><span class="line">$ docker run -it -h=<span class="string">"APP1"</span> --name APP1 --link redis-master:db -v ~/Projects/Django/App1:/usr/src/app django /bin/bash</span><br><span class="line">$ docker run -it -h=<span class="string">"APP2"</span> --name APP2 --link redis-master:db -v ~/Projects/Django/App2:/usr/src/app django /bin/bash</span><br><span class="line"> </span><br><span class="line"><span class="comment"># 启动HAProxy节点</span></span><br><span class="line">$ docker run -it -h=<span class="string">"HaProxy"</span> --name HAProxy --link APP1:APP1 --link APP2:APP2 -p 6301:6301 -v ~/Project/HAProxy:/tmp haproxy /bin/bash</span><br><span class="line"> </span><br><span class="line"><span class="comment"># 查看运行中的容器</span></span><br><span class="line">$ docker ps</span><br></pre></td></tr></table></figure>
+
+<h3 id="配置redis数据库，在宿主机上创建redis数据库的配置文件随后copy到redis容器中"><a href="#配置redis数据库，在宿主机上创建redis数据库的配置文件随后copy到redis容器中" class="headerlink" title="配置redis数据库，在宿主机上创建redis数据库的配置文件随后copy到redis容器中"></a>配置<code>redis</code>数据库，在宿主机上创建<code>redis</code>数据库的配置文件随后copy到redis容器中</h3><ul>
+<li><code>redis-master</code>配置文件：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim redis-master.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">daemonize yes</span><br><span class="line">pidfile &#x2F;var&#x2F;run&#x2F;redis.pid</span><br><span class="line">port 6379</span><br><span class="line">timeout 0</span><br><span class="line">tcp-keepalive 0</span><br><span class="line">databases 1</span><br><span class="line"> </span><br><span class="line">stop-writes-on-bgsave-error no</span><br><span class="line">rdbcompression yes</span><br><span class="line">rdbchecksum yes</span><br><span class="line">dbfilename dump.rdb</span><br><span class="line">dir &#x2F;tmp&#x2F;</span><br><span class="line"> </span><br><span class="line">maxmemory 2gb</span><br><span class="line">maxmemory-policy allkeys-lru</span><br><span class="line">appendonly no</span><br><span class="line">appendfsync everysec</span><br><span class="line">no-appendfsync-on-rewrite no</span><br><span class="line">auto-aof-rewrite-percentage 100</span><br><span class="line">auto-aof-rewrite-min-size 512mb</span><br><span class="line">hash-max-ziplist-entries 64</span><br><span class="line">hash-max-ziplist-value 128</span><br><span class="line">list-max-ziplist-entries 64</span><br><span class="line">list-max-ziplist-value 128</span><br><span class="line">set-max-intset-entries 64</span><br><span class="line">zset-max-ziplist-entries 64</span><br><span class="line">zset-max-ziplist-value 128</span><br><span class="line">activerehashing yes</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>redis-slave</code>配置文件： /home/hmq/</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim redis-slave.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">daemonize yes</span><br><span class="line">pidfile &#x2F;var&#x2F;run&#x2F;redis.pid</span><br><span class="line">port 6379</span><br><span class="line">slaveof master 6379</span><br><span class="line">timeout 0</span><br><span class="line">tcp-keepalive 0</span><br><span class="line">databases 1</span><br><span class="line"> </span><br><span class="line">stop-writes-on-bgsave-error no</span><br><span class="line">rdbcompression yes</span><br><span class="line">rdbchecksum yes</span><br><span class="line">dbfilename dump.rdb</span><br><span class="line">dir &#x2F;tmp&#x2F;</span><br><span class="line"> </span><br><span class="line">maxmemory 2gb</span><br><span class="line">maxmemory-policy allkeys-lru</span><br><span class="line">appendonly no</span><br><span class="line">appendfsync everysec</span><br><span class="line">no-appendfsync-on-rewrite no</span><br><span class="line">auto-aof-rewrite-percentage 100</span><br><span class="line">auto-aof-rewrite-min-size 512mb</span><br><span class="line">hash-max-ziplist-entries 64</span><br><span class="line">hash-max-ziplist-value 128</span><br><span class="line">list-max-ziplist-entries 64</span><br><span class="line">list-max-ziplist-value 128</span><br><span class="line">set-max-intset-entries 64</span><br><span class="line">zset-max-ziplist-entries 64</span><br><span class="line">zset-max-ziplist-value 128</span><br><span class="line">activerehashing yes</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>配置<code>redis</code>数据库：<br>方法一：将本地redis配置文件复制到容器中的方法：利用数据卷方式</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># 适用于1.12版本及以上</span><br><span class="line">## 获取数据卷的挂载点</span><br><span class="line">$ docker inspect -f &#39;&#123;&#123; .Mounts &#125;&#125;&#39; redis-master</span><br><span class="line">$ docker inspect -f &#39;&#123;&#123; .Mounts &#125;&#125;&#39; redis-slave1</span><br><span class="line">$ docker inspect -f &#39;&#123;&#123; .Mounts &#125;&#125;&#39; redis-slave2</span><br><span class="line"> </span><br><span class="line">## 分别记录挂载点 cd &#x2F;var&#x2F;lib&#x2F;docker&#x2F;volumes&#x2F;0726b88309db1be325c3c0afc8aa68b8545b96cbab2f16e8136c1e63694d13e9&#x2F;_data</span><br><span class="line">## 形如：&#x2F;var&#x2F;lib&#x2F;docker&#x2F;volumes&#x2F;&lt;Container-ID&gt;&#x2F;_data</span><br><span class="line"> </span><br><span class="line">## 拷贝配置文件  cp &#x2F;home&#x2F;hmq&#x2F;redis-slave.conf .</span><br><span class="line">$ cp redis-master.conf &lt;redis-master的挂载点&gt;</span><br><span class="line">$ cp redis-slave.conf &lt;redis-slave1的挂载点&gt;</span><br><span class="line">$ cp redis-slave.conf &lt;redis-slave2的挂载点&gt;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>测试操作：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在redis-master容器中</span></span><br><span class="line"><span class="comment"># 在redis-master容器中</span></span><br><span class="line">$ cp /data/redis-master.conf /usr/<span class="built_in">local</span>/bin/redis.conf</span><br><span class="line">$ <span class="built_in">cd</span> /usr/<span class="built_in">local</span>/bin/</span><br><span class="line">$ redis-server redis.conf</span><br><span class="line">$ redis-cli</span><br><span class="line">127.0.0.1:6379&gt; <span class="built_in">set</span> stu_num 11234567</span><br><span class="line">127.0.0.1:6379&gt; get stu_num</span><br><span class="line">127.0.0.1:6379&gt; <span class="built_in">exit</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 在redis-slave容器中</span></span><br><span class="line"><span class="comment"># 在redis-slave容器中</span></span><br><span class="line">$ cp /data/redis-slave.conf /usr/<span class="built_in">local</span>/bin/redis.conf</span><br><span class="line">$ <span class="built_in">cd</span> /usr/<span class="built_in">local</span>/bin/</span><br><span class="line">$ redis-server redis.conf</span><br><span class="line">$ redis-cli</span><br><span class="line">127.0.0.1:6379&gt; get stu_num</span><br><span class="line">127.0.0.1:6379&gt; <span class="built_in">exit</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h3 id="配置Web-APP节点"><a href="#配置Web-APP节点" class="headerlink" title="配置Web APP节点"></a>配置Web APP节点</h3><h4 id="在Web-APP节点上"><a href="#在Web-APP节点上" class="headerlink" title="在Web APP节点上"></a>在Web APP节点上</h4><ul>
+<li><p>安装<code>redis</code>模块：<br>可能会更新安装 pip install –upgrade pip</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ pip install redis</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>测试操作：</p>
+</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> redis</span><br><span class="line">print(redis.__file__)</span><br><span class="line">exit()</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>创建<code>Hello-World</code>的<code>APP</code>：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> /usr/src/app</span><br><span class="line">$ mkdir dockerweb</span><br><span class="line">$ <span class="built_in">cd</span> dockerweb</span><br><span class="line">$ django-admin.py startproject redisweb</span><br><span class="line">$ <span class="built_in">cd</span> redisweb</span><br><span class="line">$ python manage.py startapp helloworld</span><br></pre></td></tr></table></figure>
+
+<h4 id="在宿主机上"><a href="#在宿主机上" class="headerlink" title="在宿主机上"></a>在宿主机上</h4><ul>
+<li>切换目录：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> ~/Projects/Django/App1/dockerweb/redisweb/</span><br><span class="line">$ <span class="built_in">cd</span> ~/Projects/Django/App2/dockerweb/redisweb/</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>配置视图(<code>View</code>)：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim helloworld/views.py</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> django.shortcuts <span class="keyword">import</span> render</span><br><span class="line"><span class="keyword">from</span> django.http <span class="keyword">import</span> HttpResponse</span><br><span class="line"><span class="keyword">import</span> redis</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">hello</span><span class="params">(requset)</span>:</span></span><br><span class="line">    str=redis.__file__</span><br><span class="line">    str+=<span class="string">"&lt;br&gt;"</span></span><br><span class="line">    r = redis.Redis(host=<span class="string">'db'</span>, port=<span class="number">6379</span>, db=<span class="number">0</span>)</span><br><span class="line">    info = r.info()</span><br><span class="line">    str+=(<span class="string">"Set Hi &lt;br&gt;"</span>)</span><br><span class="line">    r.set(<span class="string">'Hi'</span>, <span class="string">'HelloWorld-APP1'</span>)</span><br><span class="line"><span class="comment"># 在APP2节点修改为HelloWorld-APP2</span></span><br><span class="line">    str+=(<span class="string">"Get Hi: %s &lt;br&gt;"</span> % r.get(<span class="string">'Hi'</span>))</span><br><span class="line">    str+=(<span class="string">"Redis Info: &lt;br&gt;"</span>)</span><br><span class="line">    str+=(<span class="string">"Key: Info Value"</span>)</span><br><span class="line">    <span class="keyword">for</span> key <span class="keyword">in</span> info:</span><br><span class="line">        str+=(<span class="string">"%s: %s&lt;br&gt;"</span> % (key, info[key]))</span><br><span class="line">    <span class="keyword">return</span> HttpResponse(str)</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>更改配置文件：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim redisweb/settings.py</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 文件内容</span></span><br><span class="line">ALLOWED_HOSTS = [<span class="string">'*'</span>,]</span><br><span class="line">INSTALLED_APPS = [</span><br><span class="line">    <span class="string">'django.contrib.admin'</span>,</span><br><span class="line">    <span class="string">'django.contrib.auth'</span>,</span><br><span class="line">    <span class="string">'django.contrib.contenttypes'</span>,</span><br><span class="line">    <span class="string">'django.contrib.sessions'</span>,</span><br><span class="line">    <span class="string">'django.contrib.messages'</span>,</span><br><span class="line">    <span class="string">'django.contrib.staticfiles'</span>,</span><br><span class="line">    <span class="string">'helloworld'</span>,</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>配置<code>url</code>：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim redisweb/urls.py</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> django.conf.urls <span class="keyword">import</span> url</span><br><span class="line"><span class="keyword">from</span> django.contrib <span class="keyword">import</span> admin</span><br><span class="line">admin.autodiscover()</span><br><span class="line"><span class="keyword">from</span> helloworld.views <span class="keyword">import</span> hello</span><br><span class="line"> </span><br><span class="line">urlpatterns = [ </span><br><span class="line">   url(<span class="string">r'^admin/'</span>, admin.site.urls),</span><br><span class="line">   url(<span class="string">r'^helloworld$'</span>, hello),</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<h4 id="在Web-APP节点上-两个分别都要"><a href="#在Web-APP节点上-两个分别都要" class="headerlink" title="在Web APP节点上  两个分别都要"></a>在<code>Web APP</code>节点上  两个分别都要</h4><ul>
+<li>初始化项目：root@1b787e4ab53b:/usr/src/app/dockerweb/redisweb# </li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ python manage.py makemigrations</span><br><span class="line">$ python manage.py migrate</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>启动服务：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># APP1:</span></span><br><span class="line">$ python manage.py runserver 0.0.0.0:8001</span><br><span class="line"></span><br><span class="line"><span class="comment"># APP2:</span></span><br><span class="line">$ python manage.py runserver 0.0.0.0:8002</span><br></pre></td></tr></table></figure>
+
+<h3 id="配置HAProxy节点"><a href="#配置HAProxy节点" class="headerlink" title="配置HAProxy节点"></a>配置<code>HAProxy</code>节点</h3><h4 id="在宿主机上-1"><a href="#在宿主机上-1" class="headerlink" title="在宿主机上"></a>在宿主机上</h4><ul>
+<li>切换目录：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> ~/Projects/HAProxy/</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>创建配置文件：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim haproxy.cfg</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">global</span><br><span class="line">    log 127.0.0.1   local0</span><br><span class="line">    maxconn 4096</span><br><span class="line">    chroot &#x2F;usr&#x2F;local&#x2F;sbin</span><br><span class="line">    daemon</span><br><span class="line">    nbproc  4</span><br><span class="line">    pidfile &#x2F;usr&#x2F;local&#x2F;sbin&#x2F;haproxy.pid</span><br><span class="line"> </span><br><span class="line">defaults</span><br><span class="line">    log     127.0.0.1   local3</span><br><span class="line">    mode    http</span><br><span class="line">    option  dontlognull</span><br><span class="line">    option  redispatch</span><br><span class="line">    retries 2</span><br><span class="line">    maxconn 2000</span><br><span class="line">    balance roundrobin </span><br><span class="line">    timeout connect 5000ms</span><br><span class="line">    timeout client  50000ms</span><br><span class="line">    timeout server  50000ms</span><br><span class="line"> </span><br><span class="line">listen redis_proxy</span><br><span class="line">    bind 0.0.0.0:6301</span><br><span class="line">    stats enable</span><br><span class="line">    bind-process 1</span><br><span class="line">    stats uri &#x2F;haproxy-stats</span><br><span class="line">    stats auth phil:NRG93012</span><br><span class="line">        server APP1 APP1:8001 check inter 2000 rise 2 fall 5</span><br><span class="line">        server APP2 APP2:8002 check inter 2000 rise 2 fall 5</span><br></pre></td></tr></table></figure>
+
+<h4 id="在HAProxy节点"><a href="#在HAProxy节点" class="headerlink" title="在HAProxy节点"></a>在<code>HAProxy</code>节点</h4><ul>
+<li>切换目录：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> /tmp</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>复制配置文件：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ cp haproxy.cfg /usr/<span class="built_in">local</span>/sbin</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>切换目录：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> /usr/<span class="built_in">local</span>/sbin</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>启动服务：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ haproxy -f haproxy.cfg</span><br></pre></td></tr></table></figure>
+
+<h3 id="测试操作"><a href="#测试操作" class="headerlink" title="测试操作"></a>测试操作</h3><ul>
+<li>使用浏览器访问，<code>http://192.168.157.128:6301/helloworld</code></li>
+<li>多次请求代理节点，<code>HAProxy</code>节点会自动分发请求，达到负载均衡的目的；</li>
+</ul>
+<hr>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">docker</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">部署</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/06/30/4/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-是" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/06/30/%E6%98%AF/">Docker之网络驱动及使用</a>
+    </h1>
+  
+
+        
+        <a href="/2020/06/30/%E6%98%AF/" class="archive-article-date">
+  	<time datetime="2020-06-30T04:53:00.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-06-30</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><ul>
+<li>在本文中，你将了解<code>Docker</code>的默认网络，网络驱动种类，如何创建及使用；</li>
+<li>默认情况下，存在<code>bridge</code>、<code>host</code>、<code>overlay</code>、<code>macvlan</code>、<code>none</code>这<code>5</code>种网络驱动程序;</li>
+</ul>
+<h2 id="默认网络"><a href="#默认网络" class="headerlink" title="默认网络"></a>默认网络</h2><ul>
+<li>在安装<code>Docker</code>时，它会自动创建三个网络，使用<code>docker network ls</code>命令查看；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network ls</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<ul>
+<li><code>Docker</code>内置这三种网络类型，在运行容器时，可以使用<code>--network</code>或<code>--net</code>参数来指定容器连接到哪个网络；</li>
+</ul>
+<h2 id="bridge"><a href="#bridge" class="headerlink" title="bridge"></a>bridge</h2><h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><ul>
+<li><code>Docker</code>的默认网络模式，<code>Docker</code>守护进程会自动创建名为<code>docker0</code>的网桥，一个虚拟的以太网桥，用于自动转发与之连接的任意网络接口间的数据包；</li>
+<li>桥接网络适用于在同一个<code>Docker</code>守护程序主机上运行的容器；</li>
+<li>在<code>bridge</code>模式下，连在同一网桥上的容器可以相互通信；</li>
+</ul>
+<ul>
+<li>使用<code>docker network inspect NAME</code>命令获取指定网络的信息；</li>
+<li>若无容器运行时，<code>Containers</code>标签中无内容；</li>
+<li>默认的<code>docker0</code>网桥不支持容器名解析，若希望容器能够按照容器名解析<code>IP</code>地址，可以选择自定义网络；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network inspect bridge</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">[</span><br><span class="line">    &#123;</span><br><span class="line">        &quot;Name&quot;: &quot;bridge&quot;,</span><br><span class="line">        &quot;Id&quot;: &quot;6d4655b4463085d1da3f562b1dc260e998d16a874d3924ca89aec147dec9e477&quot;,</span><br><span class="line">        &quot;Scope&quot;: &quot;local&quot;,</span><br><span class="line">        &quot;Driver&quot;: &quot;bridge&quot;,</span><br><span class="line">        &quot;EnableIPv6&quot;: false,</span><br><span class="line">        &quot;IPAM&quot;: &#123;</span><br><span class="line">            &quot;Driver&quot;: &quot;default&quot;,</span><br><span class="line">            &quot;Options&quot;: null,</span><br><span class="line">            &quot;Config&quot;: [</span><br><span class="line">                &#123;</span><br><span class="line">                    &quot;Subnet&quot;: &quot;172.17.0.0&#x2F;16&quot;,</span><br><span class="line">                    &quot;Gateway&quot;: &quot;172.17.0.1&quot;</span><br><span class="line">                &#125;</span><br><span class="line">            ]</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;Internal&quot;: false,</span><br><span class="line">        &quot;Containers&quot;: &#123;&#125;,</span><br><span class="line">        &quot;Options&quot;: &#123;</span><br><span class="line">            &quot;com.docker.network.bridge.default_bridge&quot;: &quot;true&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.enable_icc&quot;: &quot;true&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.enable_ip_masquerade&quot;: &quot;true&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.host_binding_ipv4&quot;: &quot;0.0.0.0&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.name&quot;: &quot;docker0&quot;,</span><br><span class="line">            &quot;com.docker.network.driver.mtu&quot;: &quot;1500&quot;</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;Labels&quot;: &#123;&#125;</span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>使用<code>bridge</code>模式，运行一个<code>Nginx</code>容器</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d --rm --name nginx-server-1 -p 8080:80 nginx</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>对于在不同<code>Docker</code>守护进程主机上运行的容器之间的通信，您可以在操作系统级别管理路由，也可以使用覆盖(<code>overlay</code>)网络；</li>
+</ul>
+<h3 id="自定义网桥"><a href="#自定义网桥" class="headerlink" title="自定义网桥"></a>自定义网桥</h3><h4 id="与默认网桥相比"><a href="#与默认网桥相比" class="headerlink" title="与默认网桥相比"></a>与默认网桥相比</h4><ul>
+<li>用户自定义的网桥提供了更好的隔离和集装箱化应用程序之间的互操作性；</li>
+<li>用户自定义的网桥提供了容器之间的自动<code>DNS</code>解析，默认网桥只能通过<code>IP</code>地址访问彼此，除非使用<code>--link</code>选项(不推荐)；</li>
+<li>用户自定义的网桥允许容器在运行状态下连接或分离，默认网桥则不允许这样操作；</li>
+<li>用户自定义的网络允许更加自由化的配置，满足不同的网络需求；</li>
+<li>连接在默认网桥上的容器共享环境变量，用户自定义网桥则不允许，但可以通过其他方式实现；</li>
+</ul>
+<h4 id="创建网桥"><a href="#创建网桥" class="headerlink" title="创建网桥"></a>创建网桥</h4><ul>
+<li>创建<code>1</code>个名为<code>br0</code>的网桥：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">docker network create \</span><br><span class="line">--driver=bridge \</span><br><span class="line">--subnet=172.18.0.0/16 \</span><br><span class="line">--ip-range=172.18.5.0/24 \</span><br><span class="line">--gateway=172.18.5.254 \</span><br><span class="line">br0</span><br></pre></td></tr></table></figure>
+
+<h4 id="获取网络信息"><a href="#获取网络信息" class="headerlink" title="获取网络信息"></a>获取网络信息</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network inspect br0</span><br></pre></td></tr></table></figure>
+
+<h4 id="运行容器"><a href="#运行容器" class="headerlink" title="运行容器"></a>运行容器</h4><ul>
+<li>使用自定义的<code>br0</code>网桥运行一个<code>Nginx</code>容器：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d --rm --name nginx-server-2 --network br0 -p 8081:80 nginx</span><br></pre></td></tr></table></figure>
+
+<h2 id="host"><a href="#host" class="headerlink" title="host"></a>host</h2><ul>
+<li><p>与宿主机共享网络，就网络而言，宿主机和容器之间没有隔离；</p>
+</li>
+<li><p>使用<code>host</code>模式，运行一个<code>Nginx</code>容器(无需端口映射，占用宿主机的<code>80</code>端口)：</p>
+</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d --rm --network=host --name nginx-server-3 nginx</span><br></pre></td></tr></table></figure>
+
+<h2 id="none"><a href="#none" class="headerlink" title="none"></a>none</h2><ul>
+<li><code>none</code>模式只能访问本地网络，无法访问外网；</li>
+</ul>
+<h2 id="overlay"><a href="#overlay" class="headerlink" title="overlay"></a>overlay</h2><ul>
+<li><code>Overlay</code>网络将多个<code>Docker</code>守护进程连接在一起，并使集群服务之间能够彼此通信，该策略消除掉了不同主机的容器之间通信需要<code>OS</code>级别的路由；</li>
+</ul>
+<h3 id="前置条件"><a href="#前置条件" class="headerlink" title="前置条件"></a>前置条件</h3><ul>
+<li>一个能够访问的分布式键值存储，<code>Engine</code>支持<code>Consul</code>, <code>Etcd</code>与<code>ZooKeeper</code>；</li>
+<li>集群中的各节点能够连接到该分布式键值存储服务；</li>
+<li>在集群中的每台主机必须正确地配置<code>Engine daemon</code>，<code>dockerd</code>支持<code>overlay</code>网络的选项有：<code>--cluster-store</code>，<code>--cluster-advertise</code>与<code>--cluster-store-opt</code>；</li>
+</ul>
+<h3 id="键值存储服务"><a href="#键值存储服务" class="headerlink" title="键值存储服务"></a>键值存储服务</h3><h4 id="Consul"><a href="#Consul" class="headerlink" title="Consul"></a>Consul</h4><ul>
+<li>下载<code>Consul</code>安装包：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ CONSUL_VERSION=<span class="string">'1.1.0'</span></span><br><span class="line">$ wget https://releases.hashicorp.com/consul/<span class="variable">$&#123;CONSUL_VERSION&#125;</span>/consul_<span class="variable">$&#123;CONSUL_VERSION&#125;</span>_linux_amd64.zip</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>解压<code>Consul</code>安装包：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ unzip consul_<span class="variable">$&#123;CONSUL_VERSION&#125;</span>_linux_amd64.zip -d /usr/<span class="built_in">local</span>/bin/</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>获取<code>Consul</code>版本：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ consul --version</span><br></pre></td></tr></table></figure>
+
+<p>1、+ 运行首个<code>Server</code>服务：<strong>（bind后面跟ip）</strong><br>$nohup consul agent -server -bootstrap-expect 2 -node consul-1 -data-dir /opt/consul -bind 192.168.11.142 -client 0.0.0.0 -datacenter wy -ui &amp;```</p>
+<p>2、运行第<code>2</code>个<code>Server</code>服务：join 后面是第一台服务器的ip</p>
+<p>$nohup consul agent -server -node consul-2 -join 192.168.11.142 -data-dir /opt/consul -bind 192.168.11.144 -client 0.0.0.0 -datacenter wy -ui &amp;</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">+ 运行第&#96;3&#96;个&#96;Server&#96;服务：（只有2台虚拟机就忽略）</span><br><span class="line"></span><br><span class="line">&#96;&#96;&#96;bash</span><br><span class="line">$ rm -rf &#x2F;opt&#x2F;consul</span><br><span class="line">$ nohup consul agent \</span><br><span class="line">-server \</span><br><span class="line">-node consul-3 \</span><br><span class="line">-join 172.18.20.2 \</span><br><span class="line">-data-dir &#x2F;opt&#x2F;consul \</span><br><span class="line">-bind 172.18.20.5 \</span><br><span class="line">-client 0.0.0.0 \</span><br><span class="line">-datacenter xiao \</span><br><span class="line">-ui &amp;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>一个高可用的<code>Consul</code>集群需要<code>3</code>个<code>Server</code>服务，测试环境也可以选择<code>1</code>个<code>Server</code>与<code>2</code>个<code>Client</code>服务：（）忽略</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ nohup consul agent \</span><br><span class="line">-node consul-client \</span><br><span class="line">-join 172.18.20.2 \</span><br><span class="line">-data-dir /opt/consul \</span><br><span class="line">-<span class="built_in">bind</span> 172.18.20.10 \</span><br><span class="line">-client 0.0.0.0 \</span><br><span class="line">-datacenter xiao \</span><br><span class="line">-ui &amp;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>手动加入到集群中(备用)：（忽略）</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ consul join 172.18.20.2</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>获取集群中成员的信息：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ consul members</span><br></pre></td></tr></table></figure>
+
+<h3 id="Docker服务"><a href="#Docker服务" class="headerlink" title="Docker服务"></a>Docker服务</h3><h4 id="Consul-1"><a href="#Consul-1" class="headerlink" title="Consul"></a>Consul</h4><ul>
+<li>配置<code>Engine daemon</code>：2台虚拟机都要配置相同的daemon</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim /lib/systemd/system/docker.service</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ExecStart&#x3D;&#x2F;usr&#x2F;bin&#x2F;dockerd -H tcp:&#x2F;&#x2F;0.0.0.0:2376 -H unix:&#x2F;&#x2F;&#x2F;var&#x2F;run&#x2F;docker.sock --cluster-store&#x3D;consul:&#x2F;&#x2F;localhost:8500 --cluster-advertise&#x3D;eth0:2376</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>重启<code>Docker</code>服务：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ systemctl daemon-reload</span><br><span class="line">$ systemctl restart docker.service</span><br></pre></td></tr></table></figure>
+
+<h3 id="自定义覆盖网络"><a href="#自定义覆盖网络" class="headerlink" title="自定义覆盖网络"></a>自定义覆盖网络</h3><h4 id="创建网络"><a href="#创建网络" class="headerlink" title="创建网络"></a>创建网络</h4><ul>
+<li>此时在任意一个节点创建<code>Overlay</code>网络都会同步到其他节点：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network create --driver overlay --attachable=<span class="literal">true</span> overlay0</span><br></pre></td></tr></table></figure>
+<h4 id="获取网络信息-1"><a href="#获取网络信息-1" class="headerlink" title="获取网络信息"></a>获取网络信息</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network inspect overlay0</span><br></pre></td></tr></table></figure>
+
+<h4 id="运行容器并测试"><a href="#运行容器并测试" class="headerlink" title="运行容器并测试"></a>运行容器并测试</h4><ul>
+<li>在不同主机上，都指定<code>--network overlay0</code>，测试网络是否连通；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -dit --rm --name busybox-1 --network overlay0 busybox</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -dit --rm --name busybox-2 --network overlay0 busybox</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>通过<code>docker exec</code>进入到容器中，获取其<code>IP</code>地址；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it busybox-1 /bin/sh</span><br><span class="line">$ ip addr</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>通过<code>ping</code>命令测试连通性：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ping IP</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>由于<code>Overlay</code>网络为我们自定义，所以也提供了容器之间的自动<code>DNS</code>解析；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ping busybox-2</span><br></pre></td></tr></table></figure>
+
+<hr>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">docker</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">搭建</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">网络</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/06/30/%E6%98%AF/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-hello-world" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
@@ -410,11 +852,19 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
           <ul class="article-tag-list" q-show="showTags">
              
               <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color2">docker</a>
+              </li>
+             
+              <li class="article-tag-list-item">
                 <a href="javascript:void(0)" class="js-tag color3">部署</a>
               </li>
              
               <li class="article-tag-list-item">
                 <a href="javascript:void(0)" class="js-tag color3">搭建</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color3">网络</a>
               </li>
             
             <div class="clearfix"></div>

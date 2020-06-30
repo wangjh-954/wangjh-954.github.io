@@ -6,14 +6,21 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://yoursite.com">
-  <title>Tag: 部署 | wangjh&#39;blog</title>
+  <title>Docker之网络驱动及使用 | wangjh&#39;blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="wangjh&#39;blog">
-<meta property="og:url" content="http://yoursite.com/tags/%E9%83%A8%E7%BD%B2/index.html">
+  <meta name="description" content="简介 在本文中，你将了解Docker的默认网络，网络驱动种类，如何创建及使用； 默认情况下，存在bridge、host、overlay、macvlan、none这5种网络驱动程序;  默认网络 在安装Docker时，它会自动创建三个网络，使用docker network ls命令查看；  1$ docker network ls       Docker内置这三种网络类型，在运行容器时，可以使用-">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker之网络驱动及使用">
+<meta property="og:url" content="http://yoursite.com/2020/06/30/%E6%98%AF/index.html">
 <meta property="og:site_name" content="wangjh&#39;blog">
+<meta property="og:description" content="简介 在本文中，你将了解Docker的默认网络，网络驱动种类，如何创建及使用； 默认情况下，存在bridge、host、overlay、macvlan、none这5种网络驱动程序;  默认网络 在安装Docker时，它会自动创建三个网络，使用docker network ls命令查看；  1$ docker network ls       Docker内置这三种网络类型，在运行容器时，可以使用-">
 <meta property="og:locale" content="zh">
+<meta property="article:published_time" content="2020-06-30T04:53:00.000Z">
+<meta property="article:modified_time" content="2020-06-30T04:56:42.722Z">
 <meta property="article:author" content="Wangjh">
+<meta property="article:tag" content="docker">
+<meta property="article:tag" content="搭建">
+<meta property="article:tag" content="网络">
 <meta name="twitter:card" content="summary">
   
     <link rel="alternative" href="/atom.xml" title="wangjh&#39;blog" type="application/atom+xml">
@@ -150,36 +157,207 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            
-  
-  
+            <article id="post-是" class="article article-type-post " itemscope itemprop="blogPost">
+  <div class="article-inner">
     
-    
-      
-      
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2020" class="archive-year">2020</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/06/30/4/" class="archive-article-date">
-  	<time datetime="2020-06-30T04:56:00.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-06-30</time>
-</a>
-        </div>
-    	 
+      <header class="article-header">
+        
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/06/30/4/">docker应用栈的搭建</a>
+    <h1 class="article-title" itemprop="name">
+      Docker之网络驱动及使用
     </h1>
   
 
-        <div class="article-info info-on-right">
-          
+        
+        <a href="/2020/06/30/%E6%98%AF/" class="archive-article-date">
+  	<time datetime="2020-06-30T04:53:00.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-06-30</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><ul>
+<li>在本文中，你将了解<code>Docker</code>的默认网络，网络驱动种类，如何创建及使用；</li>
+<li>默认情况下，存在<code>bridge</code>、<code>host</code>、<code>overlay</code>、<code>macvlan</code>、<code>none</code>这<code>5</code>种网络驱动程序;</li>
+</ul>
+<h2 id="默认网络"><a href="#默认网络" class="headerlink" title="默认网络"></a>默认网络</h2><ul>
+<li>在安装<code>Docker</code>时，它会自动创建三个网络，使用<code>docker network ls</code>命令查看；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network ls</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<ul>
+<li><code>Docker</code>内置这三种网络类型，在运行容器时，可以使用<code>--network</code>或<code>--net</code>参数来指定容器连接到哪个网络；</li>
+</ul>
+<h2 id="bridge"><a href="#bridge" class="headerlink" title="bridge"></a>bridge</h2><h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><ul>
+<li><code>Docker</code>的默认网络模式，<code>Docker</code>守护进程会自动创建名为<code>docker0</code>的网桥，一个虚拟的以太网桥，用于自动转发与之连接的任意网络接口间的数据包；</li>
+<li>桥接网络适用于在同一个<code>Docker</code>守护程序主机上运行的容器；</li>
+<li>在<code>bridge</code>模式下，连在同一网桥上的容器可以相互通信；</li>
+</ul>
+<ul>
+<li>使用<code>docker network inspect NAME</code>命令获取指定网络的信息；</li>
+<li>若无容器运行时，<code>Containers</code>标签中无内容；</li>
+<li>默认的<code>docker0</code>网桥不支持容器名解析，若希望容器能够按照容器名解析<code>IP</code>地址，可以选择自定义网络；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network inspect bridge</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">[</span><br><span class="line">    &#123;</span><br><span class="line">        &quot;Name&quot;: &quot;bridge&quot;,</span><br><span class="line">        &quot;Id&quot;: &quot;6d4655b4463085d1da3f562b1dc260e998d16a874d3924ca89aec147dec9e477&quot;,</span><br><span class="line">        &quot;Scope&quot;: &quot;local&quot;,</span><br><span class="line">        &quot;Driver&quot;: &quot;bridge&quot;,</span><br><span class="line">        &quot;EnableIPv6&quot;: false,</span><br><span class="line">        &quot;IPAM&quot;: &#123;</span><br><span class="line">            &quot;Driver&quot;: &quot;default&quot;,</span><br><span class="line">            &quot;Options&quot;: null,</span><br><span class="line">            &quot;Config&quot;: [</span><br><span class="line">                &#123;</span><br><span class="line">                    &quot;Subnet&quot;: &quot;172.17.0.0&#x2F;16&quot;,</span><br><span class="line">                    &quot;Gateway&quot;: &quot;172.17.0.1&quot;</span><br><span class="line">                &#125;</span><br><span class="line">            ]</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;Internal&quot;: false,</span><br><span class="line">        &quot;Containers&quot;: &#123;&#125;,</span><br><span class="line">        &quot;Options&quot;: &#123;</span><br><span class="line">            &quot;com.docker.network.bridge.default_bridge&quot;: &quot;true&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.enable_icc&quot;: &quot;true&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.enable_ip_masquerade&quot;: &quot;true&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.host_binding_ipv4&quot;: &quot;0.0.0.0&quot;,</span><br><span class="line">            &quot;com.docker.network.bridge.name&quot;: &quot;docker0&quot;,</span><br><span class="line">            &quot;com.docker.network.driver.mtu&quot;: &quot;1500&quot;</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;Labels&quot;: &#123;&#125;</span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>使用<code>bridge</code>模式，运行一个<code>Nginx</code>容器</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d --rm --name nginx-server-1 -p 8080:80 nginx</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>对于在不同<code>Docker</code>守护进程主机上运行的容器之间的通信，您可以在操作系统级别管理路由，也可以使用覆盖(<code>overlay</code>)网络；</li>
+</ul>
+<h3 id="自定义网桥"><a href="#自定义网桥" class="headerlink" title="自定义网桥"></a>自定义网桥</h3><h4 id="与默认网桥相比"><a href="#与默认网桥相比" class="headerlink" title="与默认网桥相比"></a>与默认网桥相比</h4><ul>
+<li>用户自定义的网桥提供了更好的隔离和集装箱化应用程序之间的互操作性；</li>
+<li>用户自定义的网桥提供了容器之间的自动<code>DNS</code>解析，默认网桥只能通过<code>IP</code>地址访问彼此，除非使用<code>--link</code>选项(不推荐)；</li>
+<li>用户自定义的网桥允许容器在运行状态下连接或分离，默认网桥则不允许这样操作；</li>
+<li>用户自定义的网络允许更加自由化的配置，满足不同的网络需求；</li>
+<li>连接在默认网桥上的容器共享环境变量，用户自定义网桥则不允许，但可以通过其他方式实现；</li>
+</ul>
+<h4 id="创建网桥"><a href="#创建网桥" class="headerlink" title="创建网桥"></a>创建网桥</h4><ul>
+<li>创建<code>1</code>个名为<code>br0</code>的网桥：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">docker network create \</span><br><span class="line">--driver=bridge \</span><br><span class="line">--subnet=172.18.0.0/16 \</span><br><span class="line">--ip-range=172.18.5.0/24 \</span><br><span class="line">--gateway=172.18.5.254 \</span><br><span class="line">br0</span><br></pre></td></tr></table></figure>
+
+<h4 id="获取网络信息"><a href="#获取网络信息" class="headerlink" title="获取网络信息"></a>获取网络信息</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network inspect br0</span><br></pre></td></tr></table></figure>
+
+<h4 id="运行容器"><a href="#运行容器" class="headerlink" title="运行容器"></a>运行容器</h4><ul>
+<li>使用自定义的<code>br0</code>网桥运行一个<code>Nginx</code>容器：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d --rm --name nginx-server-2 --network br0 -p 8081:80 nginx</span><br></pre></td></tr></table></figure>
+
+<h2 id="host"><a href="#host" class="headerlink" title="host"></a>host</h2><ul>
+<li><p>与宿主机共享网络，就网络而言，宿主机和容器之间没有隔离；</p>
+</li>
+<li><p>使用<code>host</code>模式，运行一个<code>Nginx</code>容器(无需端口映射，占用宿主机的<code>80</code>端口)：</p>
+</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d --rm --network=host --name nginx-server-3 nginx</span><br></pre></td></tr></table></figure>
+
+<h2 id="none"><a href="#none" class="headerlink" title="none"></a>none</h2><ul>
+<li><code>none</code>模式只能访问本地网络，无法访问外网；</li>
+</ul>
+<h2 id="overlay"><a href="#overlay" class="headerlink" title="overlay"></a>overlay</h2><ul>
+<li><code>Overlay</code>网络将多个<code>Docker</code>守护进程连接在一起，并使集群服务之间能够彼此通信，该策略消除掉了不同主机的容器之间通信需要<code>OS</code>级别的路由；</li>
+</ul>
+<h3 id="前置条件"><a href="#前置条件" class="headerlink" title="前置条件"></a>前置条件</h3><ul>
+<li>一个能够访问的分布式键值存储，<code>Engine</code>支持<code>Consul</code>, <code>Etcd</code>与<code>ZooKeeper</code>；</li>
+<li>集群中的各节点能够连接到该分布式键值存储服务；</li>
+<li>在集群中的每台主机必须正确地配置<code>Engine daemon</code>，<code>dockerd</code>支持<code>overlay</code>网络的选项有：<code>--cluster-store</code>，<code>--cluster-advertise</code>与<code>--cluster-store-opt</code>；</li>
+</ul>
+<h3 id="键值存储服务"><a href="#键值存储服务" class="headerlink" title="键值存储服务"></a>键值存储服务</h3><h4 id="Consul"><a href="#Consul" class="headerlink" title="Consul"></a>Consul</h4><ul>
+<li>下载<code>Consul</code>安装包：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ CONSUL_VERSION=<span class="string">'1.1.0'</span></span><br><span class="line">$ wget https://releases.hashicorp.com/consul/<span class="variable">$&#123;CONSUL_VERSION&#125;</span>/consul_<span class="variable">$&#123;CONSUL_VERSION&#125;</span>_linux_amd64.zip</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>解压<code>Consul</code>安装包：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ unzip consul_<span class="variable">$&#123;CONSUL_VERSION&#125;</span>_linux_amd64.zip -d /usr/<span class="built_in">local</span>/bin/</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>获取<code>Consul</code>版本：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ consul --version</span><br></pre></td></tr></table></figure>
+
+<p>1、+ 运行首个<code>Server</code>服务：<strong>（bind后面跟ip）</strong><br>$nohup consul agent -server -bootstrap-expect 2 -node consul-1 -data-dir /opt/consul -bind 192.168.11.142 -client 0.0.0.0 -datacenter wy -ui &amp;```</p>
+<p>2、运行第<code>2</code>个<code>Server</code>服务：join 后面是第一台服务器的ip</p>
+<p>$nohup consul agent -server -node consul-2 -join 192.168.11.142 -data-dir /opt/consul -bind 192.168.11.144 -client 0.0.0.0 -datacenter wy -ui &amp;</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">+ 运行第&#96;3&#96;个&#96;Server&#96;服务：（只有2台虚拟机就忽略）</span><br><span class="line"></span><br><span class="line">&#96;&#96;&#96;bash</span><br><span class="line">$ rm -rf &#x2F;opt&#x2F;consul</span><br><span class="line">$ nohup consul agent \</span><br><span class="line">-server \</span><br><span class="line">-node consul-3 \</span><br><span class="line">-join 172.18.20.2 \</span><br><span class="line">-data-dir &#x2F;opt&#x2F;consul \</span><br><span class="line">-bind 172.18.20.5 \</span><br><span class="line">-client 0.0.0.0 \</span><br><span class="line">-datacenter xiao \</span><br><span class="line">-ui &amp;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>一个高可用的<code>Consul</code>集群需要<code>3</code>个<code>Server</code>服务，测试环境也可以选择<code>1</code>个<code>Server</code>与<code>2</code>个<code>Client</code>服务：（）忽略</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ nohup consul agent \</span><br><span class="line">-node consul-client \</span><br><span class="line">-join 172.18.20.2 \</span><br><span class="line">-data-dir /opt/consul \</span><br><span class="line">-<span class="built_in">bind</span> 172.18.20.10 \</span><br><span class="line">-client 0.0.0.0 \</span><br><span class="line">-datacenter xiao \</span><br><span class="line">-ui &amp;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>手动加入到集群中(备用)：（忽略）</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ consul join 172.18.20.2</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>获取集群中成员的信息：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ consul members</span><br></pre></td></tr></table></figure>
+
+<h3 id="Docker服务"><a href="#Docker服务" class="headerlink" title="Docker服务"></a>Docker服务</h3><h4 id="Consul-1"><a href="#Consul-1" class="headerlink" title="Consul"></a>Consul</h4><ul>
+<li>配置<code>Engine daemon</code>：2台虚拟机都要配置相同的daemon</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vim /lib/systemd/system/docker.service</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ExecStart&#x3D;&#x2F;usr&#x2F;bin&#x2F;dockerd -H tcp:&#x2F;&#x2F;0.0.0.0:2376 -H unix:&#x2F;&#x2F;&#x2F;var&#x2F;run&#x2F;docker.sock --cluster-store&#x3D;consul:&#x2F;&#x2F;localhost:8500 --cluster-advertise&#x3D;eth0:2376</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>重启<code>Docker</code>服务：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ systemctl daemon-reload</span><br><span class="line">$ systemctl restart docker.service</span><br></pre></td></tr></table></figure>
+
+<h3 id="自定义覆盖网络"><a href="#自定义覆盖网络" class="headerlink" title="自定义覆盖网络"></a>自定义覆盖网络</h3><h4 id="创建网络"><a href="#创建网络" class="headerlink" title="创建网络"></a>创建网络</h4><ul>
+<li>此时在任意一个节点创建<code>Overlay</code>网络都会同步到其他节点：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network create --driver overlay --attachable=<span class="literal">true</span> overlay0</span><br></pre></td></tr></table></figure>
+<h4 id="获取网络信息-1"><a href="#获取网络信息-1" class="headerlink" title="获取网络信息"></a>获取网络信息</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker network inspect overlay0</span><br></pre></td></tr></table></figure>
+
+<h4 id="运行容器并测试"><a href="#运行容器并测试" class="headerlink" title="运行容器并测试"></a>运行容器并测试</h4><ul>
+<li>在不同主机上，都指定<code>--network overlay0</code>，测试网络是否连通；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -dit --rm --name busybox-1 --network overlay0 busybox</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -dit --rm --name busybox-2 --network overlay0 busybox</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>通过<code>docker exec</code>进入到容器中，获取其<code>IP</code>地址；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it busybox-1 /bin/sh</span><br><span class="line">$ ip addr</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>通过<code>ping</code>命令测试连通性：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ping IP</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>由于<code>Overlay</code>网络为我们自定义，所以也提供了容器之间的自动<code>DNS</code>解析；</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ping busybox-2</span><br></pre></td></tr></table></figure>
+
+<hr>
+
+      
+
+      
+        <div class="page-reward">
+          <a href="javascript:;" class="page-reward-btn tooltip-top">
+            <div class="tooltip tooltip-east">
+            <span class="tooltip-item">
+              赏
+            </span>
+            <span class="tooltip-content">
+              <span class="tooltip-text">
+                <span class="tooltip-inner">
+                  <p class="reward-p"><i class="icon icon-quo-left"></i>谢谢你请我吃糖果<i class="icon icon-quo-right"></i></p>
+                  <div class="reward-box">
+                    
+                    
+                  </div>
+                </span>
+              </span>
+            </span>
+          </div>
+          </a>
+        </div>
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
 	<div class="article-tag tagcloud">
 		<i class="icon-price-tags icon"></i>
 		<ul class="article-tag-list">
@@ -189,74 +367,138 @@
         		</li>
       		 
         		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">部署</a>
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">搭建</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">网络</a>
         		</li>
       		
 		</ul>
 	</div>
 
-          
+      
 
+      
+
+      
+        
+<div class="share-btn share-icons tooltip-left">
+  <div class="tooltip tooltip-east">
+    <span class="tooltip-item">
+      <a href="javascript:;" class="share-sns share-outer">
+        <i class="icon icon-share"></i>
+      </a>
+    </span>
+    <span class="tooltip-content">
+      <div class="share-wrap">
+        <div class="share-icons">
+          <a class="weibo share-sns" href="javascript:;" data-type="weibo">
+            <i class="icon icon-weibo"></i>
+          </a>
+          <a class="weixin share-sns wxFab" href="javascript:;" data-type="weixin">
+            <i class="icon icon-weixin"></i>
+          </a>
+          <a class="qq share-sns" href="javascript:;" data-type="qq">
+            <i class="icon icon-qq"></i>
+          </a>
+          <a class="douban share-sns" href="javascript:;" data-type="douban">
+            <i class="icon icon-douban"></i>
+          </a>
+          <a class="qzone share-sns" href="javascript:;" data-type="qzone">
+            <i class="icon icon-qzone"></i>
+          </a>
+          <a class="facebook share-sns" href="javascript:;" data-type="facebook">
+            <i class="icon icon-facebook"></i>
+          </a>
+          <a class="twitter share-sns" href="javascript:;" data-type="twitter">
+            <i class="icon icon-twitter"></i>
+          </a>
+          <a class="google share-sns" href="javascript:;" data-type="google">
+            <i class="icon icon-google"></i>
+          </a>
         </div>
-        <div class="clearfix"></div>
-    </header>
+      </div>
+    </span>
+  </div>
+</div>
+
+<div class="page-modal wx-share js-wx-box">
+    <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <p>扫一扫，分享到微信</p>
+    <div class="wx-qrcode">
+      <img src="//pan.baidu.com/share/qrcode?url=http://yoursite.com/2020/06/30/%E6%98%AF/" alt="微信分享二维码">
+    </div>
+</div>
+
+<div class="mask js-mask"></div>
+      
+      <div class="clearfix"></div>
+    </div>
   </div>
 </article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/06/30/hello-world/" class="archive-article-date">
-  	<time datetime="2020-06-30T04:26:00.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-06-30</time>
-</a>
+<nav id="article-nav">
+  
+    <a href="/2020/06/30/4/" id="article-nav-newer" class="article-nav-link-wrap">
+      <i class="icon-circle-left"></i>
+      <div class="article-nav-title">
+        
+          docker应用栈的搭建
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2020/06/30/hello-world/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">first blog</div>
+      <i class="icon-circle-right"></i>
+    </a>
+  
+</nav>
+
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
         </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/06/30/hello-world/">first blog</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">部署</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/部署//" class="article-tag-list-link color3">部署</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
+        
+        
+        <div class="toc-container tooltip-left">
+            <i class="icon-font icon-category"></i>
+            <div class="tooltip tooltip-east">
+                <span class="tooltip-item">
+                </span>
+                <span class="tooltip-content">
+                    <div class="toc-article">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#简介"><span class="toc-number">1.</span> <span class="toc-text">简介</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#默认网络"><span class="toc-number">2.</span> <span class="toc-text">默认网络</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#bridge"><span class="toc-number">3.</span> <span class="toc-text">bridge</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#介绍"><span class="toc-number">3.1.</span> <span class="toc-text">介绍</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#自定义网桥"><span class="toc-number">3.2.</span> <span class="toc-text">自定义网桥</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#与默认网桥相比"><span class="toc-number">3.2.1.</span> <span class="toc-text">与默认网桥相比</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#创建网桥"><span class="toc-number">3.2.2.</span> <span class="toc-text">创建网桥</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#获取网络信息"><span class="toc-number">3.2.3.</span> <span class="toc-text">获取网络信息</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#运行容器"><span class="toc-number">3.2.4.</span> <span class="toc-text">运行容器</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#host"><span class="toc-number">4.</span> <span class="toc-text">host</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#none"><span class="toc-number">5.</span> <span class="toc-text">none</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#overlay"><span class="toc-number">6.</span> <span class="toc-text">overlay</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#前置条件"><span class="toc-number">6.1.</span> <span class="toc-text">前置条件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#键值存储服务"><span class="toc-number">6.2.</span> <span class="toc-text">键值存储服务</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Consul"><span class="toc-number">6.2.1.</span> <span class="toc-text">Consul</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Docker服务"><span class="toc-number">6.3.</span> <span class="toc-text">Docker服务</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Consul-1"><span class="toc-number">6.3.1.</span> <span class="toc-text">Consul</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#自定义覆盖网络"><span class="toc-number">6.4.</span> <span class="toc-text">自定义覆盖网络</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#创建网络"><span class="toc-number">6.4.1.</span> <span class="toc-text">创建网络</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#获取网络信息-1"><span class="toc-number">6.4.2.</span> <span class="toc-text">获取网络信息</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#运行容器并测试"><span class="toc-number">6.4.3.</span> <span class="toc-text">运行容器并测试</span></a></li></ol></li></ol></li></ol>
+                    </div>
+                </span>
+            </div>
         </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
+        
+    </div>
+</aside>
+
+
+
   
   
-    </div></section>
   
 
-    
+  
+
+  
+
+  
 
 
           </div>
@@ -279,9 +521,9 @@
 	var yiliaConfig = {
 		mathjax: false,
 		isHome: false,
-		isPost: false,
+		isPost: true,
 		isArchive: false,
-		isTag: true,
+		isTag: false,
 		isCategory: false,
 		open_in_new: false,
 		toc_hide_index: true,
