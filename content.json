@@ -1,1 +1,1 @@
-[{"title":"first blog","date":"2020-06-30T04:26:00.000Z","path":"2020/06/30/hello-world/","tags":[]},{"title":"second blog","date":"2020-06-30T04:24:00.000Z","path":"2020/06/30/first-blog/","tags":[]}]
+[{"title":"first blog","date":"2020-06-30T04:26:00.000Z","path":"2020/06/30/hello-world/","tags":[{"name":"部署","slug":"部署","permalink":"http://yoursite.com/tags/%E9%83%A8%E7%BD%B2/"}]},{"title":"second blog","date":"2020-06-30T04:24:00.000Z","path":"2020/06/30/first-blog/","tags":[{"name":"搭建","slug":"搭建","permalink":"http://yoursite.com/tags/%E6%90%AD%E5%BB%BA/"}]}]
