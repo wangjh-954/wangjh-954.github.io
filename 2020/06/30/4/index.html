@@ -605,31 +605,30 @@
 
 
 
-  <div id="giteement-ctn"></div>
+
   
-    <link rel="stylesheet" href="/lib/default.css">
-    <script src="/lib/giteement.browser.js"></script>
+  <div id="gitment-ctn"></div>
+  
+    <!-- 中文 -->
+    <link rel="stylesheet" href="/lib/gitment.css">
+    <script src="/lib/gitment.js"></script>
   
   <script>
-  <!-- id: "docker应用栈的搭建" -->
-  var giteement = new Giteement({
-    id: '20200630125600',
-    owner: '',
-    repo: '',
-    backcall_uri: '',
-    oauth_uri: 'https://cors-anywhere.herokuapp.com/https://gitee.com/oauth/token',
-    oauth: {
-      client_id: '',
-      client_secret: ''
-    },
-  })
-  giteement.render('giteement-ctn')
+    <!-- id: "docker应用栈的搭建" -->
+    var gitment = new Gitment({
+      id: "20200630125600",
+      owner: 'wangjh-954',
+      repo: 'https://github.com/wangjh-954/wangjh-954.github.io',
+      oauth: {
+        client_id: 'b924c6c5493fdc45136a',
+        client_secret: 'ca5d375ebf651e4b21482e2fa5ce93ce4862fa1c',
+      },
+    })
+    gitment.render('gitment-ctn')
   </script>
 
 
-
-
-
+  
 
 
 
